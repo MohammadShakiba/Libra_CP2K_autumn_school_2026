@@ -1,23 +1,17 @@
-"""Plots for NAMD_simulation.py, adapted from 9_step4/tutorial.ipynb.
+"""Plot saved NBRA dynamics and analyze electronic structure.
 
 Run from 4_step4: python NAMD_plotting.py --prefix namd_run
 Use the same --prefix as the simulation; figures are saved directly there.
-Edit the settings and uncomment the plotting calls at the bottom as needed.
-The initial selection plots input properties and basis diagnostics. After
-running dynamics, also uncomment the population, decoherence, and fit calls.
+Edit the input folder and settings below, and the plotting calls at the bottom.
+The only command-line setting is --prefix, overriding the common run/output folder.
+The selected calls plot basis diagnostics and saved dynamics, including TRPES
+and Shannon entropy. For a basis-only run, disable the five post-dynamics calls.
 This file reads saved data; it never imports or runs the simulation script.
-The notebook separates post-dynamics analysis (populations, decoherence maps,
-and fitted timescales) from pre-dynamics descriptions (energies, gaps, couplings,
-and overlaps). The latter require only the saved input matrices, so they are
-useful even before a surface-hopping calculation has been performed.
+Pre-NAMD electronic-structure plots are provided by ../3_step3/plotting.py.
+Populations, fitted timescales, entropy, and TRPES require completed dynamics.
 """
 import os
 import argparse
-
-parser = argparse.ArgumentParser(description="Plot saved NBRA results")
-parser.add_argument("--prefix", default="namd_run",
-                    help="Simulation results folder; also saves figures here (default: namd_run)")
-args = parser.parse_args()
 
 import h5py
 import numpy as np
@@ -28,7 +22,7 @@ from ld_active_space import diagnose_fixed_active_spaces
 
 
 # ==================== 1. Settings to edit ====================
-results_path = args.prefix      # Same folder as the simulation --prefix
+results_path = "namd_run"      # Same folder as the simulation --prefix
 plot_path = results_path        # Save figures and fit tables in the run folder
 methods = ["FSSH"]
 #methods = ["FSSH", "IDA", "MSDM"]
@@ -37,7 +31,22 @@ ISTATE = 1                     # State whose decay/recovery will be fitted
 population_type = "sh_pop_adi"
 #population_type = "se_pop_adi"
 R2_MIN = 0.1                    # Illustrative fit-quality cutoff
-os.makedirs(plot_path, exist_ok=True)
+
+# Optional time-energy map after TSH. This is a population-weighted PES, not
+# a photoelectron spectrum (ionization energies/cross sections are not supplied).
+TRPES_POPULATION = "sh_pop_adi"  # or "se_pop_adi"
+TRPES_STATES = None             # None: all states; e.g. [1, 2, 3] excludes S0
+TRPES_EMIN = -0.5               # eV relative to S0
+TRPES_EMAX = 8.0
+TRPES_DE = 0.02                 # energy-grid spacing, eV
+TRPES_SIGMA = 0.10              # Gaussian standard deviation, eV
+
+# Shannon entropy is computed separately for each IC before averaging.
+ENTROPY_POPULATIONS = ["sh_pop_adi", "se_pop_adi"]
+ENTROPY_NORMALIZE = True        # divide by ln(number of saved states)
+TRPES_NORMALIZE_PEAK = True     # tutorial-style 0..1 display; archive keeps density
+TRPES_CMAP = "magma"
+TRPES_MAX_POINTS = None         # None: all saved times; or a positive sample count
 
 
 def save_plot(name):
@@ -188,95 +197,6 @@ def plot_lifetime_fits():
         save_plot(f"{method}_lifetime_fits")
 
 
-# ==================== 5. Input properties before dynamics ====================
-def plot_excitation_energies():
-    """Follow each adiabatic energy along the sampled nuclear trajectory.
-
-    Subtract S0 to display excitation energies even if the input has an energy
-    offset. Time uses the actual DT; energies are converted from Hartree to eV.
-    """
-    plt.figure(figsize=(8, 5))
-    for state in range(NSTATES):
-        plt.plot(time, energies[:, state] - energies[:, 0], label=f"S{state}")
-    plt.xlabel("Time (fs)")
-    plt.ylabel("Excitation energy relative to S0 (eV)")
-    plt.legend()
-    save_plot("excitation_energies")
-
-
-def plot_gap_distributions():
-    """Adjacent-state gaps keep the state ordering of the input matrices.
-
-    Histograms describe fluctuations of E[i+1]-E[i] along the trajectory.
-    Density normalization gives unit area, allowing distributions with different
-    widths to be compared; this is not a histogram of electronic populations.
-    """
-    plt.figure(figsize=(8, 5))
-    for state in range(NSTATES - 1):
-        gap = energies[:, state + 1] - energies[:, state]
-        plt.hist(gap, bins=50, density=True, histtype="step", label=f"S{state+1}-S{state}")
-    plt.xlabel("Adjacent energy gap (eV)")
-    plt.ylabel("Probability density (1/eV)")
-    plt.legend()
-    save_plot("gap_distributions")
-
-
-def plot_nac_map():
-    """Compare mean absolute couplings for different pairs of states.
-
-    Average |NAC|, not the signed NAC, to avoid cancellation of fluctuating
-    couplings. The optional diagonal band changes the displayed map only.
-    """
-    # In atomic units hbar=1; these time-derivative couplings are shown in meV.
-    # They are not spatial derivative coupling vectors.
-    average = np.mean(np.abs(nacs), axis=0) * units.au2ev * 1000.0
-    np.fill_diagonal(average, 0)
-    # To show only a band around the diagonal, uncomment:
-    #band = 8
-    #for i in range(NSTATES):
-    #    for j in range(NSTATES):
-    #        if abs(i - j) > band:
-    #            average[i, j] = 0
-    plt.figure(figsize=(7, 6))
-    plt.imshow(average, origin="lower", cmap="hot")
-    plt.colorbar(label="meV")
-    plt.xlabel("State index")
-    plt.ylabel("State index")
-    plt.title("Mean absolute nonadiabatic couplings")
-    save_plot("nac_map")
-
-
-def plot_nac_distribution(pairs, name):
-    """Unique-pair |NAC| distribution; omit exact zeros for logarithmic axes.
-
-    All pairs use i<j to avoid counting a pair twice; adjacent pairs use j=i+1.
-    Comparing the two reveals whether neighboring states represent the broader
-    coupling distribution. Log-spaced bins show its range across orders of
-    magnitude. Density is still per meV, not per logarithmic unit.
-    """
-    values = [np.abs(nacs[:, i, j]) * units.au2ev * 1000.0 for i, j in pairs]
-    if len(values) == 0:
-        return
-    values = np.concatenate(values)
-    values = values[values > 0]
-    if len(values) == 0:
-        print(name, "has no nonzero couplings")
-        return
-    low, high = values.min(), values.max()
-    if low == high:
-        low, high = low / 1.1, high * 1.1
-    bins = np.geomspace(low, high, 80)
-    hist, edges = np.histogram(values, bins=bins, density=True)
-    centers = np.sqrt(edges[:-1] * edges[1:])
-    keep = hist > 0
-    plt.figure(figsize=(8, 5))
-    plt.loglog(centers[keep], hist[keep])
-    plt.xlabel("|NAC| (meV)")
-    plt.ylabel("Probability density (1/meV)")
-    plt.title(name)
-    save_plot(name)
-
-
 # ==================== 6. Time-overlap diagnostics ====================
 def plot_basis_quality():
     """Plot a selected size; edit nact_st for a different leading active block.
@@ -315,28 +235,193 @@ def plot_overlap_element():
     save_plot("overlap_element")
 
 
-# ==================== 7. Select the plots to make ====================
-# The simulation saves this archive during the initial basis-check run too.
-with np.load(f"{results_path}/analysis_data.npz") as data:
-    st = data["overlaps"]
-    ham = data["hamiltonians"]
-    nacs = data["nacs"]
-    DT = float(data["dt_fs"])
-NSTEPS, NSTATES = ham.shape[:2]
-time = np.arange(NSTEPS) * DT
-energies = np.diagonal(ham, axis1=1, axis2=2).real * units.au2ev
+# ==================== 7. Population-weighted time-energy map ====================
+def population_energy_map(energy_ev, populations, time_fs, icond, dt_fs,
+                          energy_grid, sigma, states=None):
+    """Broaden populations at their IC-aligned energies; return density in 1/eV.
 
-plot_excitation_energies()
-plot_gap_distributions()
-plot_nac_map()
-all_pairs = [(i, j) for i in range(NSTATES) for j in range(i + 1, NSTATES)]
-adjacent_pairs = [(i, i + 1) for i in range(NSTATES - 1)]
-plot_nac_distribution(all_pairs, "nac_distribution_all_pairs")
-plot_nac_distribution(adjacent_pairs, "nac_distribution_adjacent_pairs")
-plot_basis_quality()
-#plot_overlap_element()          # Choose valid i, j in the function first
+    Saved populations precede propagation: sample k uses input (icond+k)%nfiles.
+    Saved times may be strided but must lie on the input-frame time grid.
+    Accumulating one state at a time avoids a time x energy x state temporary.
+    """
+    energy_ev, populations = np.asarray(energy_ev), np.asarray(populations)
+    time_fs, energy_grid = np.asarray(time_fs), np.asarray(energy_grid)
+    if energy_ev.ndim != 2 or populations.ndim != 2 or energy_ev.shape[1] != populations.shape[1]:
+        raise ValueError("Energy and population arrays must have matching state columns")
+    if len(time_fs) != len(populations) or len(time_fs) == 0 or len(energy_ev) == 0:
+        raise ValueError("Empty input or inconsistent time/population lengths")
+    if not all(np.all(np.isfinite(x)) for x in (energy_ev, populations, time_fs, energy_grid)):
+        raise ValueError("TRPES inputs must be finite")
+    if np.any(populations < -1e-10):
+        raise ValueError("Negative populations cannot define an energy density")
+    if dt_fs <= 0 or sigma <= 0 or not np.isfinite(dt_fs + sigma):
+        raise ValueError("DT and Gaussian sigma must be positive and finite")
+    if energy_grid.ndim != 1 or len(energy_grid) < 2 or np.any(np.diff(energy_grid) <= 0):
+        raise ValueError("Energy grid must be a strictly increasing vector")
+    if time_fs.ndim != 1 or np.any(np.diff(time_fs) <= 0) or not np.isclose(time_fs[0], 0):
+        raise ValueError("Saved time must start at zero and increase strictly")
+    if not isinstance(icond, (int, np.integer)) or not 0 <= icond < len(energy_ev):
+        raise ValueError("ICOND must be an offset into the loaded input frames")
+    offsets = np.rint(time_fs / dt_fs).astype(int)
+    # Libra's rounded au2fs and fs2au constants are not exact reciprocals.
+    if not np.allclose(time_fs, offsets * dt_fs, rtol=1e-5, atol=1e-7):
+        raise ValueError("Saved times do not match DT; check propagation and input frame spacing")
+    selected = list(range(energy_ev.shape[1])) if states is None else list(states)
+    if not selected or len(set(selected)) != len(selected) or any(
+            not isinstance(s, (int, np.integer)) or s < 0 or s >= energy_ev.shape[1] for s in selected):
+        raise ValueError("TRPES_STATES must contain unique, valid state indices")
+    aligned = energy_ev[(icond + offsets) % len(energy_ev)]
+    aligned = aligned - aligned[:, :1]
+    density = np.zeros((len(time_fs), len(energy_grid)))
+    for state in selected:
+        gaussian = np.exp(-0.5 * ((energy_grid[None, :] - aligned[:, state, None]) / sigma)**2)
+        density += np.maximum(populations[:, state, None], 0) * gaussian / (sigma * np.sqrt(2*np.pi))
+    return density
 
-# Uncomment these after running sections 4-7 of NAMD_simulation.py:
-plot_populations()
-plot_decoherence_times()
-plot_lifetime_fits()
+
+def plot_trpes():
+    """Average IC-resolved population-weighted energy maps after TSH."""
+    if TRPES_POPULATION not in ("sh_pop_adi", "se_pop_adi"):
+        raise ValueError("Choose sh_pop_adi or se_pop_adi for TRPES_POPULATION")
+    if not ICONDS or len(set(ICONDS)) != len(ICONDS):
+        raise ValueError("ICONDS must be nonempty and contain no duplicates")
+    if not np.isfinite(TRPES_DE) or TRPES_DE <= 0 or TRPES_EMAX <= TRPES_EMIN:
+        raise ValueError("Require TRPES_DE > 0 and TRPES_EMAX > TRPES_EMIN")
+    grid = np.arange(TRPES_EMIN, TRPES_EMAX + TRPES_DE * 0.5, TRPES_DE)
+    for method in methods:
+        total = None
+        for icond in ICONDS:
+            filename = f"{results_path}/{method}_icond_{icond}/mem_data.hdf"
+            with h5py.File(filename, "r") as data:
+                t = np.asarray(data["time/data"]).reshape(-1) * units.au2fs
+                pop = np.asarray(data[f"{TRPES_POPULATION}/data"])
+            if TRPES_MAX_POINTS is not None:
+                if not isinstance(TRPES_MAX_POINTS, int) or TRPES_MAX_POINTS < 1:
+                    raise ValueError("TRPES_MAX_POINTS must be None or a positive integer")
+                t, pop = t[:TRPES_MAX_POINTS], pop[:TRPES_MAX_POINTS]
+            # Preserve the time origin to detect inconsistent/truncated runs.
+            if total is None:
+                reference_time = t
+            elif t.shape != reference_time.shape or not np.allclose(t, reference_time):
+                raise ValueError("TRPES requires matching saved time grids across ICs")
+            density = population_energy_map(energies, pop, t, icond, DT,
+                                             grid, TRPES_SIGMA, TRPES_STATES)
+            total = density if total is None else total + density
+        total /= len(ICONDS)
+        area = np.trapz(total, grid, axis=1)
+        mean_energy = np.divide(np.trapz(total * grid[None, :], grid, axis=1), area,
+                                out=np.full_like(area, np.nan), where=area > 0)
+        peak = total.max()
+        display = total / peak if TRPES_NORMALIZE_PEAK and peak > 0 else total
+        name = f"{method}_{TRPES_POPULATION}_trpes"
+        np.savez(f"{plot_path}/{name}.npz", time_fs=reference_time, energy_ev=grid,
+                 density_per_ev=total, iconds=ICONDS, sigma_ev=TRPES_SIGMA,
+                 display_intensity=display, mean_energy_ev=mean_energy,
+                 states=np.arange(NSTATES) if TRPES_STATES is None else TRPES_STATES)
+        plt.figure(figsize=(9, 5))
+        plt.pcolormesh(reference_time, grid, display.T, shading="auto", cmap=TRPES_CMAP)
+        plt.colorbar(label="Relative intensity" if TRPES_NORMALIZE_PEAK else "Population density (1/eV)")
+        plt.plot(reference_time, mean_energy, "w-", linewidth=1.5, label="Mean energy in window")
+        plt.legend()
+        plt.xlabel("Time after initialization (fs)")
+        plt.ylabel("Energy relative to S0 (eV)")
+        plt.title(f"{method}: population-weighted PES ({TRPES_POPULATION})")
+        save_plot(name)
+
+
+def shannon_entropy(populations, normalize=True):
+    """Population Shannon entropy in nats, optionally divided by ln(N).
+
+    Reject materially negative or unnormalized distributions. Correct only
+    roundoff drift. This is basis-dependent population entropy, not the von
+    Neumann entropy of the electronic density matrix.
+    """
+    p = np.asarray(populations, dtype=float)
+    if p.ndim != 2 or min(p.shape) < 1 or not np.all(np.isfinite(p)):
+        raise ValueError("Entropy requires a finite time-by-state population array")
+    if np.any(p < -1e-10) or not np.allclose(p.sum(axis=1), 1, atol=1e-6, rtol=0):
+        raise ValueError("Entropy requires nonnegative populations normalized to one")
+    p = np.maximum(p, 0)
+    p = p / p.sum(axis=1, keepdims=True)
+    logp = np.zeros_like(p)
+    np.log(p, out=logp, where=p > 0)
+    entropy = -np.sum(p * logp, axis=1)
+    if normalize:
+        entropy = entropy / np.log(p.shape[1]) if p.shape[1] > 1 else np.zeros(len(p))
+    return entropy
+
+
+def plot_shannon_entropy():
+    """Plot mean IC entropy and entropy of the mean population separately."""
+    if not ICONDS or len(set(ICONDS)) != len(ICONDS):
+        raise ValueError("ICONDS must contain unique initial conditions")
+    for population in ENTROPY_POPULATIONS:
+        if population not in ("sh_pop_adi", "se_pop_adi"):
+            raise ValueError("Entropy supports sh_pop_adi and se_pop_adi")
+        plt.figure(figsize=(9, 5))
+        for method in methods:
+            samples, pops = [], []
+            for icond in ICONDS:
+                with h5py.File(f"{results_path}/{method}_icond_{icond}/mem_data.hdf", "r") as data:
+                    t = np.asarray(data["time/data"]).reshape(-1) * units.au2fs
+                    pop = np.asarray(data[f"{population}/data"])
+                if len(t) != len(pop) or not np.all(np.isfinite(t)) or np.any(np.diff(t) <= 0):
+                    raise ValueError("Entropy time and population rows must agree and times must increase")
+                if pops and (t.shape != reference_time.shape or not np.allclose(t, reference_time)
+                             or pop.shape != pops[0].shape):
+                    raise ValueError("Entropy requires matching time grids and state counts across ICs")
+                reference_time = t
+                samples.append(shannon_entropy(pop, ENTROPY_NORMALIZE))
+                pops.append(pop)
+            samples = np.asarray(samples)
+            mean = samples.mean(axis=0)
+            pooled = shannon_entropy(np.mean(pops, axis=0), ENTROPY_NORMALIZE)
+            name = f"{method}_{population}_shannon_entropy"
+            np.savez(f"{plot_path}/{name}.npz", time_fs=reference_time, iconds=ICONDS,
+                     entropy_per_ic=samples, mean_entropy=mean, entropy_of_mean_population=pooled,
+                     normalized=ENTROPY_NORMALIZE, nstates=pops[0].shape[1])
+            np.savetxt(f"{plot_path}/{name}.txt", np.column_stack((reference_time, mean, pooled)),
+                       header="time_fs mean_IC_entropy entropy_of_mean_population")
+            line, = plt.plot(reference_time, mean, label=f"{method}: mean IC entropy")
+            plt.plot(reference_time, pooled, "--", color=line.get_color(),
+                     label=f"{method}: entropy of mean population")
+        plt.xlabel("Time (fs)")
+        plt.ylabel("Shannon entropy / ln(N)" if ENTROPY_NORMALIZE else "Shannon entropy (nats)")
+        plt.legend()
+        save_plot(f"{population}_shannon_entropy")
+
+
+# ==================== Select the plots to make ====================
+def main():
+    global results_path, plot_path, st, ham, nacs, DT, NSTEPS, NSTATES, time, energies
+    parser = argparse.ArgumentParser(description="Plot saved NBRA results")
+    parser.add_argument("--prefix", default=results_path,
+                        help="Simulation results folder; figures are saved here too")
+    args = parser.parse_args()
+    results_path = plot_path = args.prefix
+    os.makedirs(plot_path, exist_ok=True)
+
+    # The simulation saves this archive during the initial basis-check run too.
+    with np.load(f"{results_path}/analysis_data.npz") as data:
+        st = data["overlaps"]
+        ham = data["hamiltonians"]
+        nacs = data["nacs"]
+        DT = float(data["dt_fs"])
+    NSTEPS, NSTATES = ham.shape[:2]
+    time = np.arange(NSTEPS) * DT
+    energies = np.diagonal(ham, axis1=1, axis2=2).real * units.au2ev
+
+    plot_basis_quality()
+    #plot_overlap_element()          # Choose valid i, j in the function first
+
+    # Enable these after running sections 4-7 of NAMD_simulation.py.
+    # Comment out all five calls for a basis-only analysis.
+    plot_populations()
+    plot_decoherence_times()
+    plot_lifetime_fits()
+    plot_trpes()                    # Set TRPES_*; requires saved TSH populations
+    plot_shannon_entropy()          # Set ENTROPY_*
+
+
+if __name__ == "__main__":
+    main()

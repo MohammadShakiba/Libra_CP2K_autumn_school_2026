@@ -310,8 +310,8 @@ dyn_general = {"nsteps": NSTEPS, "ntraj": 250, "nstates": NSTATES,
 # copied recipe. FSSH2 + MSDM combines tsh_method=7, decoherence_algo=0 and
 # decoherence_times_type=0 with the supplied rates; it is a separate recipe
 # choice, not the default FSSH2 file's behavior.
-#fssh_nbra.load(dyn_general); prf = "FSSH"
-fssh_nbra_v2.load(dyn_general); prf = "FSSH"
+fssh_nbra.load(dyn_general); prf = "FSSH"
+#fssh_nbra_v2.load(dyn_general); prf = "FSSH"
 #fssh_nbra_nac_v0.load(dyn_general); prf = "FSSH"
 #fssh_nbra_nac_v1.load(dyn_general); prf = "FSSH"
 #fssh_nbra_nac_v2.load(dyn_general); prf = "FSSH"
