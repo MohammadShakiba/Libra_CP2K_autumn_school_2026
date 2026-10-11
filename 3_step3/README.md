@@ -390,7 +390,7 @@ $\mathcal P=\{(a,a+1)\}$. Only strictly positive samples are retained:
 
 $$
 \rho_b^{\mathrm{NAC}}=
-\frac{\#\{(n,a,b): (a,b)\in\mathcal P,\ x_{n,ab}>0,\ x_{n,ab}\in B_b\}}
+\frac{\left|\left\{(n,a,b): (a,b)\in\mathcal P,\ x_{n,ab}>0,\ x_{n,ab}\in B_b\right\}\right|}
 {N_+\,\Delta x_b}.
 $$
 
@@ -590,7 +590,7 @@ $k$, the retained set, raw weight, normalized weight, count, and participation
 ratio are
 
 $$
-\mathcal R_{na}=\{k:|c_{nak}|^2>\texttt{ci\_threshold}\},\qquad
+\mathcal R_{na}=\{k:|c_{nak}|^2>\text{ci\_threshold}\},\qquad
 Q_{na}=\sum_{k\in\mathcal R_{na}}|c_{nak}|^2,\qquad
 w_{nak}=\frac{|c_{nak}|^2}{Q_{na}},
 $$

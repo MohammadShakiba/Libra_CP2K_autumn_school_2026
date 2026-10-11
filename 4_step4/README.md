@@ -179,7 +179,7 @@ $p$ is the chosen SE or SH population. If $q_r$ is an initial-condition frame
 offset and $N_f$ is the number of input frames, the energy alignment is
 
 $$
-f_r(t)=\left(q_r+\operatorname{round}\frac{t}{\Delta t}\right)\bmod N_f.
+f_r(t)=\left(q_r+\mathrm{round}\left(\frac{t}{\Delta t}\right)\right)\bmod N_f.
 $$
 
 The optional relative color scale and the overlaid mean energy are
@@ -308,7 +308,7 @@ For a leading $m$-state block $T^{(m)}$ of the time-overlap matrix, the basis
 plots and rank test use
 
 $$
-T^{(m)}=U\operatorname{diag}(\sigma_1,\ldots,\sigma_m)V^\dagger,\qquad
+T^{(m)}=U\mathrm{diag}(\sigma_1,\ldots,\sigma_m)V^\dagger,\qquad
 D_m(t)=|\det T^{(m)}(t)|=\prod_{a=1}^{m}\sigma_a(t),
 $$
 
@@ -439,7 +439,7 @@ For each IC, the least-squares lifetime model and its recovery alternative are
 $$
 P_{\mathrm{fit}}(t;\tau,\beta)=e^{-(t/\tau)^\beta},\qquad
 P_{\mathrm{recovery}}(t)=1-e^{-(t/\tau)^\beta},\qquad
-(\widehat\tau,\widehat\beta)=\operatorname*{arg\,min}_{\tau,\beta}
+(\widehat\tau,\widehat\beta)=\underset{\tau,\beta}{\mathrm{arg\,min}}
 \sum_n[P(t_n)-P_{\mathrm{fit}}(t_n;\tau,\beta)]^2.
 $$
 
@@ -452,7 +452,7 @@ R^2=1-\frac{\sum_n[P(t_n)-P_{\mathrm{fit}}(t_n)]^2}
 \bar P=\frac{1}{N_t}\sum_nP(t_n).
 $$
 
-Only fits with $R^2>\texttt{R2\_MIN}$ enter the reported mean. For either
+Only fits with $R^2>\text{R2\_MIN}$ enter the reported mean. For either
 parameter $x\in\{\tau,\beta\}$ across $M$ accepted IC fits,
 
 $$
