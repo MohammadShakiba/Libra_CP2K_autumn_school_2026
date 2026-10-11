@@ -392,13 +392,14 @@ $\mathcal P=\{(a,a+1)\}$. Only strictly positive samples are retained:
 $$
 \rho_j^{\mathrm{NAC}} =
 \frac{
-\left|\left\{(n,a,b) : (a,b)\in\mathcal{P},\,
-x_{n,ab}>0,\,
-x_{n,ab}\in B_j\right\}\right|
+\left|\left\lbrace (n,a,b) : (a,b)\in\mathcal{P},
+x_{n,ab}>0,
+x_{n,ab}\in B_j \right\rbrace\right|
 }{
-N_+\,\Delta x_j
+N_+ \Delta x_j
 }.
 $$
+
 
 $N_+$ is the number of positive samples, so this is a distribution conditional
 on nonzero coupling. Logarithmically spaced bins still give density per meV,
@@ -598,7 +599,7 @@ ratio are
 
 $$
 \mathcal{R}_{na} =
-\left\{ k \;\middle|\; |c_{nak}|^2 > \mathrm{ci\_threshold} \right\},
+\left\lbrace k \mid |c_{nak}|^2 > \mathrm{ci\_threshold} \right\rbrace,
 \qquad
 Q_{na} = \sum_{k \in \mathcal{R}_{na}} |c_{nak}|^2,
 \qquad
