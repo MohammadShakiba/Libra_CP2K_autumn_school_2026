@@ -268,12 +268,13 @@ $$
 \langle S \rangle_{\mathrm{IC}}(t) =
 \frac{1}{N_{\mathrm{IC}}}\sum_r S_r(t),
 \qquad
-S[\bar{p}](t) =
+S(\bar{p}(t)) =
 -\sum_a \bar{p}_a(t)\ln\bar{p}_a(t),
 \qquad
 \bar{p}_a(t) =
 \frac{1}{N_{\mathrm{IC}}}\sum_r p_{a,r}(t).
 $$
+
 
 Both curves are divided by $\ln N_s$ when normalization is enabled.
 Concavity implies $S[\bar p]\geq\langle S\rangle_{\mathrm{IC}}$ for a common
