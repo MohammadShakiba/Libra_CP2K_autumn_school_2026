@@ -264,7 +264,6 @@ $$
 The normalized result is defined as zero for $N_s=1$. Using $0\ln0=0$,
 the solid and dashed curves, respectively, are
 
-
 $$
 \langle S \rangle_{\mathrm{IC}}(t) =
 \frac{1}{N_{\mathrm{IC}}}\sum_r S_r(t),
