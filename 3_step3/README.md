@@ -388,10 +388,15 @@ converted to meV. The NAC distributions histogram the samples
 $x_{n,ab}=|\hbar d_{ab}(t_n)|$ for either $\mathcal P=\{(a,b):a<b\}$ or
 $\mathcal P=\{(a,a+1)\}$. Only strictly positive samples are retained:
 
+
 $$
-\rho_b^{\mathrm{NAC}}=
-\frac{\left|\left\{(n,a,b): (a,b)\in\mathcal P,\ x_{n,ab}>0,\ x_{n,ab}\in B_b\right\}\right|}
-{N_+\,\Delta x_b}.
+\rho_b^{\mathrm{NAC}} =
+\frac{
+\left|\left\{(n,a,b) : (a,b)\in\mathcal{P},\
+x_{n,ab}>0,\ x_{n,ab}\in B_b\right\}\right|
+}{
+N_+\,\Delta x_b
+}.
 $$
 
 $N_+$ is the number of positive samples, so this is a distribution conditional
@@ -589,11 +594,15 @@ For coefficients $c_{nak}$ of excited state $a$, frame $n$, and configuration
 $k$, the retained set, raw weight, normalized weight, count, and participation
 ratio are
 
+
 $$
-\mathcal R_{na}=\{k:|c_{nak}|^2>\text{ci\_threshold}\},\qquad
-Q_{na}=\sum_{k\in\mathcal R_{na}}|c_{nak}|^2,\qquad
-w_{nak}=\frac{|c_{nak}|^2}{Q_{na}},
+\mathcal{R}_{na} = \left\{ k \;\middle|\; |c_{nak}|^2 > \mathrm{ci\_threshold} \right\},
+\qquad
+Q_{na} = \sum_{k \in \mathcal{R}_{na}} |c_{nak}|^2,
+\qquad
+w_{nak} = \frac{|c_{nak}|^2}{Q_{na}}.
 $$
+
 
 $$
 M_{na}=|\mathcal R_{na}|,\qquad
