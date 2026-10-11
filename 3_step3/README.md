@@ -390,12 +390,13 @@ $\mathcal P=\{(a,a+1)\}$. Only strictly positive samples are retained:
 
 
 $$
-\rho_b^{\mathrm{NAC}} =
+\rho_j^{\mathrm{NAC}} =
 \frac{
-\left|\left\{(n,a,b) : (a,b)\in\mathcal{P},\
-x_{n,ab}>0,\ x_{n,ab}\in B_b\right\}\right|
+\left|\left\{(n,a,b) : (a,b)\in\mathcal{P},\,
+x_{n,ab}>0,\,
+x_{n,ab}\in B_j\right\}\right|
 }{
-N_+\,\Delta x_b
+N_+\,\Delta x_j
 }.
 $$
 
@@ -596,7 +597,8 @@ ratio are
 
 
 $$
-\mathcal{R}_{na} = \left\{ k \;\middle|\; |c_{nak}|^2 > \mathrm{ci\_threshold} \right\},
+\mathcal{R}_{na} =
+\left\{ k \;\middle|\; |c_{nak}|^2 > \mathrm{ci\_threshold} \right\},
 \qquad
 Q_{na} = \sum_{k \in \mathcal{R}_{na}} |c_{nak}|^2,
 \qquad
