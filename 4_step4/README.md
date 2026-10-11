@@ -264,10 +264,16 @@ $$
 The normalized result is defined as zero for $N_s=1$. Using $0\ln0=0$,
 the solid and dashed curves, respectively, are
 
+
 $$
-\langle S\rangle_{\mathrm{IC}}(t)=\frac{1}{N_{\mathrm{IC}}}\sum_r S_r(t),\qquad
-S[\bar p](t)=-\sum_a\bar p_a(t)\ln\bar p_a(t),\qquad
-\bar p_a(t)=\frac{1}{N_{\mathrm{IC}}}\sum_r p_{a,r}(t).
+\langle S \rangle_{\mathrm{IC}}(t) =
+\frac{1}{N_{\mathrm{IC}}}\sum_r S_r(t),
+\qquad
+S[\bar{p}](t) =
+-\sum_a \bar{p}_a(t)\ln\bar{p}_a(t),
+\qquad
+\bar{p}_a(t) =
+\frac{1}{N_{\mathrm{IC}}}\sum_r p_{a,r}(t).
 $$
 
 Both curves are divided by $\ln N_s$ when normalization is enabled.
@@ -452,7 +458,7 @@ R^2=1-\frac{\sum_n[P(t_n)-P_{\mathrm{fit}}(t_n)]^2}
 \bar P=\frac{1}{N_t}\sum_nP(t_n).
 $$
 
-Only fits with $R^2>\text{R2\_MIN}$ enter the reported mean. For either
+Only fits with $R^2 > \mathrm{R2\_MIN}$ enter the reported mean. For either
 parameter $x\in\{\tau,\beta\}$ across $M$ accepted IC fits,
 
 $$
