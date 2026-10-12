@@ -53,8 +53,9 @@ Run:
 python NAMD_simulation.py --prefix runs/example
 ```
 
-The script prints determinant and singular-value diagnostics for every leading
-active-space size, saves `analysis_data.npz` and `basis_diagnostics.txt` in the
+The script prints SVD rank diagnostics for every leading
+active-space size, saves `analysis_data.npz`, `basis_diagnostics.txt`, and
+`basis_svd.npz` in the
 prefix folder, and stops before decoherence calculations or dynamics.
 `accepted=1` means the overlap block has full numerical rank at every interval;
 it does not prove that the electronic populations are converged with basis size.
@@ -303,19 +304,19 @@ The readers use HST couplings, `NAC = (St - St†)/(2*dt)`, and
 HST couplings from the time-overlap matrices.
 
 A nearly singular overlap can indicate projection outside the retained basis,
-which is problematic for local diabatization (LD). Determinants generally
-shrink with dimension but need not change monotonically: local maxima in the
-minimum determinant suggest candidate sizes, not proof of completeness.
-Compare the singular-value rank test and ultimately population convergence.
-`nact_st` in the diagnostic plot means the same leading-state count as
-`basis_size` in the simulation.
+which is problematic for local diabatization (LD). Use the singular-value rank
+test and ultimately population convergence to choose the basis.
+`BASIS_SIZE` in the plotting script selects a leading-state count; `None`
+uses all loaded states. The simulation saves SVD results in `basis_svd.npz`,
+and the plotting script reads those results without repeating the calculation.
+For older runs without this archive, it computes only the requested block's
+SVD from the saved overlaps; no dynamics is needed.
 
 For a leading $m$-state block $T^{(m)}$ of the time-overlap matrix, the basis
 plots and rank test use
 
 $$
-T^{(m)}=U\mathrm{diag}(\sigma_1,\ldots,\sigma_m)V^\dagger,\qquad
-D_m(t)=|\det T^{(m)}(t)|=\prod_{a=1}^{m}\sigma_a(t),
+T^{(m)}=U\mathrm{diag}(\sigma_1,\ldots,\sigma_m)V^\dagger.
 $$
 
 $$
@@ -324,8 +325,8 @@ c_m(t)=\max(\epsilon_{\mathrm{abs}},\epsilon_{\mathrm{rel}}\sigma_{\max}(t)),\qq
 r_m(t)=\sum_{a=1}^{m}\mathbf{1}[\sigma_a(t)>c_m(t)].
 $$
 
-The basis is accepted only if $r_m(t)=m$ at every interval. The plotting
-function uses $\epsilon_{\mathrm{rel}}=10^{-4}$ and
+The basis is accepted only if $r_m(t)=m$ at every interval. The basis check
+uses $\epsilon_{\mathrm{rel}}=10^{-4}$ and
 $\epsilon_{\mathrm{abs}}=10^{-12}$. The optional individual-overlap plot shows
 $|T_{ij}(t)|$ for the selected pair. The coupling construction is
 
@@ -421,10 +422,9 @@ $$
 Every selected IC has equal weight, even if its number of hopping trajectories
 differs. This is not a trajectory-count-weighted pooling of all runs.
 
-Excitation energies follow the trajectory relative to S0. Adjacent-gap
-histograms describe energy fluctuations. NAC maps average absolute couplings
-to avoid sign cancellation; distributions compare all unique pairs with only
-adjacent pairs. Log plots omit zero couplings and report density per meV.
+Energy-gap distributions, NAC distributions, and NAC maps are computed and
+plotted in Step 3. Step 4 computes the average gaps and dephasing estimates
+needed by its dynamics recipes and plots the saved dephasing times.
 The decoherence map shows pairwise times; its zero diagonal is a display
 convention, not a zero self-decoherence lifetime.
 
@@ -497,7 +497,7 @@ comparisons. Comment out the stop line to proceed into dynamics.
 
 Inspect excitation energies, adjacent-gap distributions, and NAC statistics
 with the Step 3 analysis for the matching electronic-structure dataset. Use
-the Step 4 basis plots for overlap determinants and minimum singular values. After section 4 has run, also inspect the decoherence
+the Step 4 basis plots for minimum singular values and rank cutoffs. After section 4 has run, also inspect the decoherence
 time map. Address these questions:
 
 - Which states are close in energy, and which pairs have the strongest couplings?
@@ -623,20 +623,21 @@ validation check; do not declare a method accurate from visual agreement alone.
 runs/example/
     analysis_data.npz
     basis_diagnostics.txt
+    basis_svd.npz
     decoherence_times.txt
     decoherence_rates.txt
     average_gaps.txt
     FSSH_icond_0/mem_data.hdf
     FSSH_icond_5/mem_data.hdf
     FSSH_icond_10/mem_data.hdf
-    overlap_determinants.png
+    overlap_singular_values.png
     FSSH_sh_pop_adi_trpes.png
     sh_pop_adi_shannon_entropy.png
     ... other selected figures ...
     FSSH_fits.txt
 ```
 
-Only the first two files are written before the stop line. Later files depend
+Only the first three files are written before the stop line. Later files depend
 on which simulation and plotting sections you run. Reusing a prefix overwrites
 matching output files; use a new prefix to preserve a different calculation.
 For example, keep a full-basis inspection in `runs/basis_check` and a production

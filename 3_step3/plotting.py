@@ -29,6 +29,7 @@ PLOTS = [
 ]
 # True for the aligned run.py recipe: first output is cache initialization.
 SKIP_INITIAL_NAC = True
+NAC_PAIRS = "all"              # "all" unique pairs or "adjacent"; one distribution
 UVVIS_FWHM_EV = 0.10            # full width at half maximum, eV
 UVVIS_GRID_STEP_EV = 0.005
 UVVIS_STATES = None             # None: all EXC_NSTATES; or e.g. [1, 2, 3]
@@ -321,20 +322,14 @@ def read_step3_matrix(filename):
 
 
 def plot_overlap_diagnostics():
-    """Show determinant, smallest singular value, and same-frame orthonormality."""
-    singular = np.linalg.svd(st, compute_uv=False)
+    """Check same-frame CI orthonormality; time-overlap SVD belongs to Step 4."""
     deviation = np.max(np.abs(same_frame - np.eye(NSTATES)), axis=(1, 2))
-    fig, axes = plt.subplots(3, 1, figsize=(9, 8), sharex=True)
-    axes[0].plot(time, np.abs(np.linalg.det(st)))
-    axes[0].set_ylabel("|det(St)|")
-    axes[1].plot(time, singular[:, -1])
-    axes[1].set_ylabel("Minimum singular value")
-    axes[2].plot(time, deviation)
-    axes[2].set_ylabel("max |S - identity|")
-    axes[2].set_xlabel("Time from first selected output (fs)")
-    save_plot("overlap_diagnostics")
-    np.savez(f"{plot_path}/overlap_diagnostics.npz", time_fs=time,
-             determinant_abs=np.abs(np.linalg.det(st)), singular_values=singular,
+    plt.figure(figsize=(9, 4))
+    plt.plot(time, deviation)
+    plt.ylabel("max |S - identity|")
+    plt.xlabel("Time from first selected output (fs)")
+    save_plot("overlap_orthonormality")
+    np.savez(f"{plot_path}/overlap_orthonormality.npz", time_fs=time,
              orthonormality_error=deviation)
 
 
@@ -460,7 +455,7 @@ def main():
         NSTEPS, NSTATES = ham.shape[:2]
         time = np.arange(NSTEPS)*DT
         energies = np.diagonal(ham, axis1=1, axis2=2).real * units.au2ev
-    if plots & {"nacs", "overlaps"}:
+    if "nacs" in plots:
         st = np.stack([read_step3_matrix(Path(DATA_DIRECTORY)/f"st_adi_{i}.txt")
                        for i in range(ISTEP, FSTEP)])
         if st.shape != ham.shape:
@@ -476,8 +471,13 @@ def main():
         plot_gap_distributions()
     if "nacs" in plots:
         plot_nac_map()
-        plot_nac_distribution([(i,j) for i in range(NSTATES) for j in range(i+1,NSTATES)], "nac_distribution_all_pairs")
-        plot_nac_distribution([(i,i+1) for i in range(NSTATES-1)], "nac_distribution_adjacent_pairs")
+        if NAC_PAIRS == "all":
+            pairs = [(i, j) for i in range(NSTATES) for j in range(i+1, NSTATES)]
+        elif NAC_PAIRS == "adjacent":
+            pairs = [(i, i+1) for i in range(NSTATES-1)]
+        else:
+            raise ValueError('NAC_PAIRS must be "all" or "adjacent"')
+        plot_nac_distribution(pairs, "nac_distribution")
     if "overlaps" in plots:
         same_frame = np.stack([read_step3_matrix(Path(DATA_DIRECTORY)/f"s_adi_{i}.txt")
                                for i in range(ISTEP, FSTEP)])

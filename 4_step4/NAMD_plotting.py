@@ -30,6 +30,7 @@ ICONDS = [0, 5, 10]             # Use initial conditions that were simulated
 ISTATE = 1                     # State whose decay/recovery will be fitted
 population_type = "sh_pop_adi"
 #population_type = "se_pop_adi"
+BASIS_SIZE = None              # None: all loaded states; or a leading-state count
 R2_MIN = 0.1                    # Illustrative fit-quality cutoff
 
 # Optional time-energy map after TSH. This is a population-weighted PES, not
@@ -199,29 +200,29 @@ def plot_lifetime_fits():
 
 # ==================== 6. Time-overlap diagnostics ====================
 def plot_basis_quality():
-    """Plot a selected size; edit nact_st for a different leading active block.
-
-    The determinant time trace locates intervals where the basis loses overlap
-    support. Compare sizes without assuming larger determinants alone establish
-    completeness. The companion singular-value/cutoff plot makes the numerical
-    rank criterion explicit; use the simulation's table to compare all sizes.
-    """
-    nact_st = NSTATES
-    #nact_st = 3
-    overlaps = st[:, :nact_st, :nact_st]
-    res = diagnose_fixed_active_spaces(st, [nact_st],
-                                       relative_tolerance=1e-4,
-                                       absolute_tolerance=1e-12)
+    """Plot the saved SVD basis check, with support for older run archives."""
+    size = NSTATES if BASIS_SIZE is None else BASIS_SIZE
+    if not isinstance(size, int) or not 1 <= size <= NSTATES:
+        raise ValueError("BASIS_SIZE must be None or a valid leading-state count")
+    filename = f"{results_path}/basis_svd.npz"
+    if os.path.exists(filename):
+        with np.load(filename) as data:
+            if (int(data["nframes"]) != NSTEPS or int(data["nstates"]) != NSTATES
+                    or not np.isclose(float(data["dt_fs"]), DT)):
+                raise ValueError("Saved SVD diagnostics do not match analysis_data.npz")
+            sigma_min = data[f"sigma_min_{size}"]
+            cutoff = data[f"cutoff_{size}"]
+    else:
+        # Legacy runs have no saved SVD arrays; only they need this calculation.
+        res = diagnose_fixed_active_spaces(st, [size],
+                                           relative_tolerance=1e-4,
+                                           absolute_tolerance=1e-12)
+        sigma_min, cutoff = res[size]["sigma_min"], res[size]["cutoff"]
     plt.figure(figsize=(8, 4))
-    plt.plot(time, np.abs(np.linalg.det(overlaps)))
+    plt.plot(time, sigma_min, label="Minimum singular value")
+    plt.plot(time, cutoff, "--", label="Rank cutoff")
     plt.xlabel("Time (fs)")
-    plt.ylabel("|det(St)|")
-    plt.title(f"Active basis: {nact_st} states")
-    save_plot("overlap_determinants")
-    plt.figure(figsize=(8, 4))
-    plt.plot(time, res[nact_st]["sigma_min"], label="Minimum singular value")
-    plt.plot(time, res[nact_st]["cutoff"], "--", label="Rank cutoff")
-    plt.xlabel("Time (fs)")
+    plt.title(f"Active basis: {size} states")
     plt.legend()
     save_plot("overlap_singular_values")
 

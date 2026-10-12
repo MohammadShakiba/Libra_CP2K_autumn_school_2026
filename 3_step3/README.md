@@ -337,12 +337,13 @@ All input and analysis choices are edited in the script; `--prefix` is the only
 command-line setting.
 
 Matrix plots read `ham_adi_i.txt`; NAC plots additionally read `st_adi_i.txt`,
-and overlap diagnostics also read `s_adi_i.txt`. Both real and Libra
+and orthonormality diagnostics read `s_adi_i.txt`. Both real and Libra
 `(real,imag)` text entries are supported. The NAC estimate is
 `(St-St†)/(2*dt)` and is displayed as coupling energy in meV. Matrix dimensions
-must agree across frames. The `overlaps` selection plots the determinant and
-minimum singular value of the CI time overlaps and the deviation of same-frame
-overlaps from identity. Step 4 separately tests the basis selected for dynamics.
+must agree across frames. The `overlaps` selection reads only the same-frame
+overlaps and plots their deviation from identity, saving
+`overlap_orthonormality.png/.npz`. Time-overlap basis diagnostics are performed
+in Step 4 using SVD singular values.
 
 ### Equations for energies, gaps, NACs, and overlaps
 
@@ -384,7 +385,7 @@ A_{ab}=\frac{1}{K}\sum_{n\in\mathcal I}|\hbar d_{ab}(t_n)|,
 \qquad A_{aa}=0,
 $$
 
-converted to meV. The NAC distributions histogram the samples
+converted to meV. The NAC distribution histograms the samples
 $x_{n,ab}=|\hbar d_{ab}(t_n)|$ for either $\mathcal P=\{(a,b):a<b\}$ or
 $\mathcal P=\{(a,a+1)\}$. Only strictly positive samples are retained:
 
@@ -404,19 +405,20 @@ $$
 $N_+$ is the number of positive samples, so this is a distribution conditional
 on nonzero coupling. Logarithmically spaced bins still give density per meV,
 not per logarithmic unit; their plotted centers are $\sqrt{x_bx_{b+1}}$.
+Set `NAC_PAIRS="all"` (default) or `NAC_PAIRS="adjacent"` in the script to
+choose one pair set. One `nac_distribution.png` is written per run. Gap
+distributions, the NAC map, and the NAC distribution are generated only here;
+Step 4 consumes couplings for propagation but does not repeat these plots.
 
-The overlap diagnostics use the singular-value decomposition
-$T=U\Sigma V^\dagger$:
+The same-frame overlap check plots
 
 $$
-D(t_n)=|\det T(t_n)|=\prod_a\sigma_a(t_n),\qquad
-s_{\min}(t_n)=\min_a\sigma_a(t_n),\qquad
 \eta(t_n)=\max_{a,b}|S_{ab}(t_n)-\delta_{ab}|.
 $$
 
-$S$ is the saved same-frame CI overlap after Löwdin orthogonalization. Thus
-$\eta$ tests orthonormality, while $D$ and $s_{\min}$ diagnose time-overlap
-support. None alone establishes convergence of the NACs.
+$S$ is the saved same-frame CI overlap after Löwdin orthogonalization.
+This checks orthonormality, not convergence of the NACs. The SVD time-overlap
+rank test is described in the [Step 4 guide](../4_step4/README.md).
 
 ### Energy levels with sideways UV–vis and density of states
 
@@ -743,13 +745,11 @@ illustrative target, require maximum coupling-energy magnitude error below
 errors for reference couplings near zero. Check `s_adi` against identity, but
 do not use orthonormality alone as evidence that NACs are converged.
 
-As an optional extension, follow the tutorial's determinant diagnostic:
-inspect `abs(det(T))` and singular values of the CI time-overlap matrix for
-different state subsets. A small determinant can indicate leakage from the
+As an optional extension, use the Step 4 SVD basis check for different
+leading-state subsets. Small singular values can indicate leakage from the
 chosen state subspace or state mixing across its boundary. This probes the
 choice of electronic states, which is distinct from the orbital active space;
-neither a determinant near one nor a stable energy spectrum proves NAC
-convergence with `ci_threshold`.
+passing the rank test does not prove NAC convergence with `ci_threshold`.
 
 ## Libra source references
 

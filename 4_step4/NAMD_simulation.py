@@ -182,7 +182,7 @@ NSTEPS, NSTATES, St_adi, Ham_adi, Hvib_adi, NAC_adi, Basis_transform = read_file
 output_path = args.prefix        # Use the same --prefix with NAMD_plotting.py
 os.makedirs(output_path, exist_ok=True)
 
-# NumPy copies make determinants, matrix statistics, and plotting convenient.
+# NumPy copies support SVD basis checks, matrix statistics, and plotting.
 # Keep complex entries; take real energies or absolute couplings only when
 # forming the particular observable, rather than discarding phases at input.
 numpy_st_adi = np.array([data_conv.MATRIX2nparray(st) for st in St_adi])
@@ -194,33 +194,31 @@ np.savez(f"{output_path}/analysis_data.npz", overlaps=numpy_st_adi,
 
 
 # ==================== 3. Check the adiabatic basis ====================
-# A small determinant can indicate states projecting outside the chosen space,
-# but determinants also decrease with dimension. Inspect singular values too.
-# The rank test requires every singular value to exceed
+# The SVD rank test requires every singular value to exceed
 # max(absolute_tolerance, relative_tolerance * largest singular value)
 # at EVERY interval. Passing is a numerical-support test, not proof that
 # populations are converged with respect to the number of states.
-# The notebook calls a trial size nact_st: it is the same leading-state count
-# as basis_size. Determinants need not vary monotonically with size. Local
-# maxima of the minimum determinant can suggest candidate spaces, but inspect
-# the singular-value support and population convergence before choosing one.
 # Near-singular overlaps make LD basis transport unreliable; start with None
 # so that the comparison includes every size available in the stored data.
 active_sizes = list(range(1, NSTATES + 1))
 res = diagnose_fixed_active_spaces(numpy_st_adi, active_sizes,
                                    relative_tolerance=1.0e-4,
                                    absolute_tolerance=1.0e-12)
-print("Size   Accepted   Minimum rank   Minimum singular value   Minimum |det(St)|")
+print("Size   Accepted   Minimum rank   Minimum singular value")
 basis_summary = []
+svd_data = {"active_sizes": np.array(active_sizes), "dt_fs": DT,
+            "nframes": NSTEPS, "nstates": NSTATES}
 for size in active_sizes:
-    determinants = np.abs(np.linalg.det(numpy_st_adi[:, :size, :size]))
     print(size, res[size]["accepted"], np.min(res[size]["effective_rank"]),
-          np.min(res[size]["sigma_min"]), np.min(determinants))
+          np.min(res[size]["sigma_min"]))
     basis_summary.append([size, int(res[size]["accepted"]),
                           np.min(res[size]["effective_rank"]),
-                          np.min(res[size]["sigma_min"]), np.min(determinants)])
+                          np.min(res[size]["sigma_min"])])
+    for key in ("singular_values", "sigma_min", "cutoff", "effective_rank"):
+        svd_data[f"{key}_{size}"] = res[size][key]
 np.savetxt(f"{output_path}/basis_diagnostics.txt", basis_summary,
-           header="size accepted min_rank min_singular_value min_abs_determinant")
+           header="size accepted min_rank min_singular_value")
+np.savez(f"{output_path}/basis_svd.npz", **svd_data)
 
 # Keep this line active for the initial basis test.
 # After choosing basis_size, comment it out to continue into sections 4-7.
