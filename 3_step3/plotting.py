@@ -160,6 +160,9 @@ def gap_spectrum(gap_ev, dt_fs, temperature):
     fluctuation = gap - gap.mean()
     n, dt_au = len(gap), dt_fs * units.fs2au
     transform = np.fft.rfft(fluctuation, n=2*n)
+    # Wiener–Khinchin: |FFT(deltaE)|²/N is the DFT of the two-sided
+    # biased ACF C[k] = sum_t deltaE[t]*deltaE[t+k]/N, with C[-k]=C[k].
+    # Padding to 2*N prevents circular wraparound of the linear correlation.
     power = np.abs(transform)**2 / n
     acf = np.fft.irfft(power, n=2*n)[:n]  # sum(deltaE[t]*deltaE[t+k])/N
     omega = 2*np.pi*np.fft.rfftfreq(2*n, dt_au)
