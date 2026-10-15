@@ -168,11 +168,27 @@ def read_files_old(data_path, istep, fstep, dt, basis_size=None):
 # 4 states; dt = 0.5 fs; istep = 0, fstep = 49 (exclusive).
 # If needed, extract in a terminal: tar -xf data3.tar.bz2
 # This example is selected initially.
-data_path = "data3/res"
+#data_path = "data3/res"
+#istep = 0                        # First input file index
+#fstep = 49                       # Read through file 48
+#ISTATE = 1                       # Initially populated state, zero-based
+#DT = 0.5                         # Input frame spacing in fs
+#basis_size = None                # First run: all available states
+#basis_size = 4                   # Notebook example; select after the test
+#NSTEPS, NSTATES, St_adi, Ham_adi, Hvib_adi, NAC_adi, Basis_transform = read_files_new(
+#    data_path, istep, fstep, DT, basis_size)
+
+
+# -------------------- Example 4: Mg@C60, Mohammad's version (this tutorial) --------------------
+# New-style text files, archive data4.tar.bz2; input files are in data3/res.
+# 4 states; dt = 1.0 fs; istep = 0, fstep = 300 (exclusive).
+# If needed, extract in a terminal: tar -xf data4.tar.bz2
+# This example is selected initially.
+data_path = "data4/res"
 istep = 0                        # First input file index
-fstep = 49                       # Read through file 48
+fstep = 300                       # Read through file 48
 ISTATE = 1                       # Initially populated state, zero-based
-DT = 0.5                         # Input frame spacing in fs
+DT = 1.0                         # Input frame spacing in fs
 #basis_size = None                # First run: all available states
 basis_size = 4                   # Notebook example; select after the test
 NSTEPS, NSTATES, St_adi, Ham_adi, Hvib_adi, NAC_adi, Basis_transform = read_files_new(
