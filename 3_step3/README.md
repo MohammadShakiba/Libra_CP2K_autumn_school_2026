@@ -496,6 +496,30 @@ this ACF evaluated at nonnegative angular frequencies, implemented as the
 nonnegative periodogram `dt*abs(FFT(deltaE))**2/N`. It is reported in eV² fs;
 it is not the squared Fourier amplitude of an already transformed ACF.
 
+This is the **Wiener–Khinchin relation**, not a replacement of the ACF by the
+fluctuation signal. For real gap fluctuations,
+
+$$
+I(\omega)=\int_{-\infty}^{\infty}C(\tau)e^{-i\omega\tau}\,d\tau
+=2\int_0^\infty C(\tau)\cos(\omega\tau)\,d\tau.
+$$
+
+For the finite, biased ACF used here, the exact discrete identity is
+
+$$
+I_m=\Delta t\left[C_0+2\sum_{k=1}^{N_t-1}
+C_k\cos(\omega_m k\Delta t)\right]
+=\frac{\Delta t}{N_t}|F_m|^2.
+$$
+
+The factor of two in the cosine sum accounts for negative lags; it is not
+an extra one-sided-spectrum scaling. A direct FFT implementation must include
+both positive and negative ACF lags in the appropriate FFT order. Transforming
+only the plotted positive-lag ACF, or squaring its Fourier transform, would
+produce a different quantity. Use the raw ACF, not `C/C0`, to preserve the
+fluctuation amplitude. This identity assumes the stated division by `N_t`;
+changing the lag normalization to `N_t-k` changes the estimator.
+
 The harmonic-bath spectral-density convention is
 `J(omega) = beta*omega*I(omega)/2`, with
 `beta = 1/(kB*SPECTRUM_TEMPERATURE)`. All factors are evaluated in atomic units
