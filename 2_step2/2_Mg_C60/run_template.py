@@ -29,7 +29,7 @@ params['cp2k_exe'] = 'cp2k.psmp'
 params['istep'] = 
 params['fstep'] = 
 
-# Lowest and highest orbital, Here HOMO is 90
+# Lowest and highest orbital, Here HOMO is 125
 params['lowest_orbital'] = 90
 params['highest_orbital'] = 160
 

@@ -7,7 +7,6 @@ from libra_py.workflows.nbra import step2
 path = os.getcwd()
 params = {}
 
-params['restart_file'] = True
 # number of processors
 params['nprocs'] = 8
 
@@ -57,6 +56,8 @@ if params['is_periodic']:
 
 # The AO overlaps in spherical or Cartesian coordinates
 params['is_spherical'] =  True
+# Use previous step wfn file for faster convergence
+params['restart_file'] = True
 # Remove the molden files, which are large files for some systems, 
 # after the computaion is done for tha system
 params['remove_molden'] = True
@@ -87,7 +88,7 @@ params['cp2k_diag_input_template'] = path + '/../es_diag_temp.inp'
 # The trajectory xyz file path
 # Note that since it will be run in one of the jobs folders
 # we need to put one more .. so that it can recognize the file
-params['trajectory_xyz_filename'] = path + '/../../1_step1/1_Rutile_TiO2/reference/Rutile_TiO2_MD-pos-1.xyz'
+params['trajectory_xyz_filename'] = path + '/../../../1_step1/1_Rutile_TiO2/reference/Rutile_TiO2_MD-pos-1.xyz'
 
 
 step2.run_cp2k_libint_step2(params)
