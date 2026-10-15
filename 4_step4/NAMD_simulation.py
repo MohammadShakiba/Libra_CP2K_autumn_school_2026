@@ -180,7 +180,7 @@ def read_files_old(data_path, istep, fstep, dt, basis_size=None):
 
 
 # -------------------- Example 4: Mg@C60, Mohammad's version (this tutorial) --------------------
-# New-style text files, archive data4.tar.bz2; input files are in data3/res.
+# New-style text files, archive data4.tar.bz2; input files are in data4/res.
 # 4 states; dt = 1.0 fs; istep = 0, fstep = 300 (exclusive).
 # If needed, extract in a terminal: tar -xf data4.tar.bz2
 # This example is selected initially.
@@ -189,8 +189,8 @@ istep = 0                        # First input file index
 fstep = 300                       # Read through file 48
 ISTATE = 1                       # Initially populated state, zero-based
 DT = 1.0                         # Input frame spacing in fs
-#basis_size = None                # First run: all available states
-basis_size = 4                   # Notebook example; select after the test
+basis_size = None                # First run: all available states
+#basis_size = 4                   # Notebook example; select after the test
 NSTEPS, NSTATES, St_adi, Ham_adi, Hvib_adi, NAC_adi, Basis_transform = read_files_new(
     data_path, istep, fstep, DT, basis_size)
 
@@ -238,7 +238,7 @@ np.savez(f"{output_path}/basis_svd.npz", **svd_data)
 
 # Keep this line active for the initial basis test.
 # After choosing basis_size, comment it out to continue into sections 4-7.
-#sys.exit(0)
+sys.exit(0)
 
 
 # ==================== 4. Energy gaps and decoherence times ====================
