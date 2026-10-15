@@ -1,153 +1,310 @@
-# Step 2: KS overlaps and TD-DFT excitation data
+# Step 2: Electronic-structure calculations and orbital overlaps for rutile TiO2
 
-For each saved geometry from [Step 1](../1_step1/README.md), run CP2K
-single-point calculations and use Libra to compute Kohn–Sham (KS) orbital
-overlaps. CP2K also computes TD-DFPT excitation energies and amplitudes.
-[Step 3](../3_step3/README.md) combines these outputs into many-electron
-state overlaps and vibronic Hamiltonians.
+In this tutorial, we use the periodic rutile TiO₂ MD trajectory from
+[Step 1](../../1_step1/1_Rutile_TiO2/README.md) to run CP2K single-point
+calculations and calculate Kohn–Sham (KS) orbital overlaps with Libra.
+CP2K also produces TD-DFPT excitation energies and amplitudes. These data
+are the inputs for the many-electron overlaps and vibronic Hamiltonians
+constructed in [Step 3](../../3_step3/README.md).
 
-Two overlap types are needed: `S_ks_i` compares orbitals at the same frame,
-while `St_ks_i` compares frame `i` with frame `i+1`. The latter describes how
-the orbital basis changes as the nuclei move; it is not itself a coupling.
+During the session, we will process **frames 0, 1, and 2**, giving two
+adjacent-frame intervals. The supplied `reference/` folder contains results
+for frames 0–20, allowing us to continue to Step 3 after the short run.
 
-## Files and settings
+**No molecular alignment is needed for this fixed-cell periodic structure.**
+Use the original MD trajectory and keep its coordinates consistent with
+the lattice vectors.
 
-| File or folder | Purpose |
-| --- | --- |
-| `input/` | Precomputed Step 1 trajectory, energies, velocities, forces, and log. |
-| `distribute_jobs.py` | Splits the trajectory, prepares job directories, and submits SLURM jobs. |
-| `submit_template.slm` | Resource requests and environment setup for each job. |
-| `run_template.py` | Libra settings and the call to `step2.run_cp2k_libint_step2`. Becomes `run.py` inside each job. |
-| `es_diag_temp.inp` | CP2K energy/TD-DFPT template with orbital, Molden, and projected density-of-states output. |
-| `align.py` | Optional trajectory translation/rotation alignment. |
-| `reference/` | Completed calculation for spatial orbitals 1–40, including generated jobs. |
-| `smaller_orbital_space/` | Alternative calculation retaining spatial orbitals 14–35. |
-| `clean.sh` | Deletes `job*`, `all_*`, and `res` in the current directory; preserve needed results before using it. |
+## Files in this folder
 
-The control sequence is:
+| File or folder | Purpose | What you need to do |
+| --- | --- | --- |
+| [README.md](README.md) | Instructions for the rutile TiO₂ Step 2 workflow. | Follow the steps below. |
+| [run_template.py](run_template.py) | Defines CP2K/Libra settings and calls `step2.run_cp2k_libint_step2`. Becomes `run.py` inside each job directory. | Set the trajectory path, processor count, orbital window, and periodic-cell settings. Leave `istep` and `fstep` blank. |
+| [distribute_jobs.py](distribute_jobs.py) | Splits the requested frame range among jobs, fills in their frame limits, and launches the submission scripts. | Set `istep`, `fstep`, `njobs`, and the submission options. |
+| [submit_template.slm](submit_template.slm) | SLURM resource requests, NESH modules, and the command that runs each generated `run.py`. | Check the allocation and environment setup; match the CPU resources to `nprocs`. |
+| [es_diag_temp.inp](es_diag_temp.inp) | CP2K DFT/TD-DFPT template, including periodic boundaries, basis sets, pseudopotentials, and Molden/PDOS output. | Keep the cell consistent with Step 1 and the Python template. Preserve the output needed by Libra. |
+| [align.py](align.py) | Molecular translation/rotation alignment utility retained in the folder. | **Skip this script for the periodic TiO₂ example.** |
+| [reference/](reference/) | Completed calculations for spatial orbitals 1–40, including logs, overlap matrices, PDOS, and generated jobs. | Use these results for inspection and the Step 3 handoff. No extraction is required. |
+| [clean.sh](clean.sh) | Removes `job*`, `all_*`, and `res` from the current directory. | Save any results you need before using it. |
 
-```text
-distribute_jobs.py → submit_template.slm → job*/run.py → CP2K + Libra overlaps
+The trajectory is provided in the Step 1 `reference/` folder. This Step 2
+folder does not contain the `input/` or `smaller_orbital_space/` directories
+mentioned in older versions of the instructions.
+
+## 1. Load Libra on NESH
+
+From the repository root, enter the rutile Step 2 folder:
+
+```bash
+cd 2_step2/1_Rutile_TiO2
 ```
 
-The supplied settings use the same periodic cell, PBE-D3 treatment, basis sets,
-and pseudopotentials as Step 1. `es_diag_temp.inp` requests 10 excited states
-with `TDDFPT/NSTATES`. The example has 48 explicitly treated electrons and
-24 occupied spatial orbitals, so the HOMO is orbital 24 and the LUMO is 25.
+Load the tutorial Libra installation:
 
-| Where to edit | Main choices |
+```bash
+export PYTHONPATH=/gxfs_home/cau/suphc424/Software/libra-code/_build/src:$PYTHONPATH
+source /gxfs_home/cau/suphc424/.conda/envs/libra/bin/activate
+```
+
+Check the Python environment:
+
+```bash
+python -c "import liblibra_core; from libra_py.workflows.nbra import step2; print('Libra is ready')"
+```
+
+Adapt these paths if you use another installation, and use the same
+environment in the batch script. Run the remaining commands from
+`2_step2/1_Rutile_TiO2` unless another directory is specified.
+
+## 2. Use the original periodic trajectory
+
+Copy the supplied Step 1 trajectory into the current folder:
+
+```bash
+cp ../../1_step1/1_Rutile_TiO2/reference/Rutile_TiO2_MD-pos-1.xyz .
+```
+
+If you ran Step 1 yourself, use the trajectory from your own calculation
+and retain its atom order, frame order, and cell definition. The supplied
+rutile cell contains six atoms: two Ti and four O.
+
+**Do not run `align.py` for this tutorial.** The periodic lattice supplies
+the reference frame, so molecular translation/rotation alignment is
+unnecessary. Rotating the coordinates alone would change their relation
+to the fixed lattice vectors. Keep the original, unaligned trajectory
+for both Step 2 and Step 3.
+
+In `run_template.py`, replace the trajectory setting with:
+
+```python
+params['trajectory_xyz_filename'] = path + '/../Rutile_TiO2_MD-pos-1.xyz'
+```
+
+`path = os.getcwd()` is evaluated inside a generated directory such as
+`job1/`, so `../` points to the Step 2 folder containing the copied XYZ.
+An absolute trajectory path is also valid. This replacement corrects the
+supplied template's relative path to Step 1, which is too shallow when
+resolved from inside `job*/`.
+
+## 3. Understand the periodic-cell settings
+
+Keep the following settings in `run_template.py` for the supplied rutile cell:
+
+```python
+params['is_periodic'] = True
+
+if params['is_periodic']:
+    params['A_cell_vector'] = [4.6532721519, 0.0, 0.0]
+    params['B_cell_vector'] = [0.0, 4.6532721519, 0.0]
+    params['C_cell_vector'] = [0.0, 0.0, 2.9692029953]
+    params['periodicity_type'] = 'XYZ'
+
+    origin = [0, 0, 0]
+    params['translational_vectors'] = CP2K_methods.generate_translational_vectors(
+        origin, [2, 2, 2], params['periodicity_type']
+    )
+```
+
+| Setting | Meaning |
 | --- | --- |
-| `distribute_jobs.py` | `istep=0`, `fstep=20`, `njobs=4`, and `run_slurm=True`. |
-| `run_template.py` | Inclusive, one-based orbital window `1..40`; `nprocs=12`; CP2K executable and MPI launcher. |
-| `run_template.py` and `es_diag_temp.inp` | Matching cell vectors and XYZ periodicity. |
-| `es_diag_temp.inp` | SCF convergence, `ADDED_MOS=50`, TD-DFPT state count and convergence. |
-| `submit_template.slm` | Cluster account, modules, wall time, memory, and CPU allocation. |
+| `is_periodic=True` | Tells Libra to include neighboring-cell contributions when constructing the orbital overlaps. |
+| `A_cell_vector`, `B_cell_vector`, `C_cell_vector` | The three lattice vectors in **ångströms**, expressed in Cartesian coordinates. Here they define a tetragonal cell with `a=b=4.6532721519 Å` and `c=2.9692029953 Å`. |
+| `periodicity_type='XYZ'` | Includes periodic images in all three directions, as appropriate for bulk rutile. |
+| `origin=[0,0,0]` | Selects the reference cell in the integer lattice-index representation. |
+| `[2,2,2]` | Includes image indices from −2 to +2 along each periodic direction in the overlap calculation. |
 
-`ADDED_MOS` controls extra orbitals in the CP2K calculation; the Libra orbital
-window controls which orbitals enter the saved overlap matrices. Neither is
-the number of TD-DFPT excited states. Keep the window wide enough to represent
-the excitations you will retain in Step 3.
+A neighboring cell is displaced by
 
-## How to run
+$$
+\mathbf{T}=n_a\mathbf{A}+n_b\mathbf{B}+n_c\mathbf{C}.
+$$
 
-1. Enter this folder from the repository root and activate a Python environment
-   with Libra, its compiled core/Libint overlap support, NumPy, and SciPy.
-   CP2K and the cluster launcher must also be available in the batch jobs.
-   Use your Step 1 trajectory, or copy the supplied example:
+`generate_translational_vectors` returns the integer triples
+`(n_a, n_b, n_c)`; Libra combines them with the lattice vectors to obtain
+the physical displacements. With `XYZ` and `[2,2,2]`, there are
+`5 × 5 × 5 − 1 = 124` neighboring translations. Libra computes the central
+cell separately, giving 125 cell contributions in total.
 
-   ```bash
-   cd 2_step2
-   cp input/Rutile_TiO2_MD-pos-1.xyz .
-   ```
+This real-space image sum accounts for overlap between basis functions
+in different cells in the Γ-point calculation used here. `[2,2,2]` controls
+the image range for those integrals; it does not specify a k-point mesh
+or enlarge the MD simulation cell. Its convergence can be checked by
+increasing the image range, particularly when changing the cell or basis.
 
-   Skip the copy if your own trajectory is already in place. Preserve atom
-   order and the cell definition throughout the workflow.
+**Use the same lattice in Step 1, `run_template.py`, and `es_diag_temp.inp`.**
+In the CP2K input, the `&CELL` vectors must match the values above, with
+`PERIODIC XYZ`; the `&POISSON` section must also retain `PERIODIC XYZ` and
+`PSOLVER PERIODIC`. The ordinary XYZ trajectory does not carry these cell
+vectors, which is why Libra needs them explicitly. The supplied settings
+assume the fixed cell used in the NVT trajectory.
 
-2. Review alignment only if needed. `python align.py` writes
-   `Rutile_TiO2_MD-pos-1-aligned.xyz`, but the run template still reads the
-   **original** filename. To use an aligned trajectory, change
-   `trajectory_xyz_filename` explicitly. For this fixed periodic cell, keep
-   the original trajectory unless you have checked that any coordinate
-   transformation remains consistent with the lattice.
+## 4. Review the remaining calculation settings
 
-3. Edit the four configuration files in the table above. Match `nprocs` to the
-   batch allocation and replace cluster-specific module paths. Leave the blank
-   `istep` and `fstep` assignments in `run_template.py` for the distributor to
-   fill; the template cannot be run directly as Python. Cube visualization is
-   disabled, so VMD is not needed for the supplied calculation.
+| Setting in `run_template.py` | Value for this tutorial |
+| --- | --- |
+| `params['nprocs']` | `8`, matching the NESH submission template. |
+| `params['mpi_executable']` | `'mpirun'`, compatible with the loaded CP2K module. |
+| `params['cp2k_exe']` | `'cp2k.psmp'`, or the appropriate executable path for your installation. |
+| `params['lowest_orbital']` | `1`. |
+| `params['highest_orbital']` | `40`, inclusive. |
+| `params['isxTB']` | `False`, selecting the DFT route. |
+| `params['isUKS']` | `False`, for the restricted calculation. |
+| `params['cube_visualization']` | `False`; VMD is not required. |
+| `params['restart_file']` | `False` for a fresh run without an external wavefunction. |
 
-4. Submit from `2_step2`:
+The template currently sets `restart_file=True`. For the fresh run, change
+it to `False`: Libra versions that interpret this parameter as a file path
+otherwise attempt to copy a file named `True`.
 
-   ```bash
-   python distribute_jobs.py
-   ```
+Leave the frame assignments blank in `run_template.py`:
 
-   With `run_slurm=True`, this submits jobs immediately. Set it to `False`
-   to prepare and inspect the generated jobs without submitting. The reference
-   jobs cover frames 0–5, 5–10, 10–15, and 15–20, sharing boundary frames so
-   adjacent-frame overlaps are available. Their generated `fstep` values are
-   exclusive (6, 11, 16, 21); inspect `job*/run.py` after changing the split.
+```python
+params['istep'] =
+params['fstep'] =
+```
 
-5. Check each job's SLURM output and the collected CP2K logs for SCF and
-   TD-DFPT convergence. Confirm that the expected files exist across the whole
-   frame range, including job boundaries. Preserve successful outputs before
-   rerunning, because matching names may be overwritten.
+The distributor fills them in when creating `job*/run.py`. Do not execute
+`run_template.py` directly while these assignments are blank.
 
-## Results and handoff
+The supplied CP2K template uses PBE-D3 with Ti and O GTH pseudopotentials.
+The reference log reports **48 explicitly treated electrons and 24 occupied
+spatial orbitals**, so the HOMO is orbital **24** and the LUMO is **25**.
+Saving spatial orbitals `1..40` gives **80 × 80** matrices containing both
+spin blocks.
+
+`ADDED_MOS 50` sets the extra KS orbitals calculated by CP2K, the Python
+orbital window selects those saved by Libra, and `TDDFPT/NSTATES 10`
+requests 10 excited states. Keep these choices consistent with the states
+and transitions used in Step 3. Preserve the Molden and PDOS print sections;
+Libra reads the Molden orbitals to calculate overlaps. Per-frame coordinate
+filenames in the CP2K input are generated automatically from the trajectory.
+
+The Python template also contains a `cp2k_ot_input_template` setting,
+although `es_ot_temp.inp` is not supplied in this folder. That file is not
+read by the DFT route used here (`isxTB=False`).
+
+## 5. Check the NESH submission template
+
+Review `submit_template.slm`. For the supplied eight-process setup, use:
+
+```bash
+#!/bin/bash -l
+#SBATCH --reservation=autumnschool
+#SBATCH --time=01:00:00
+#SBATCH --nodes=1
+#SBATCH --ntasks-per-node=8
+#SBATCH --cpus-per-task=1
+#SBATCH --mem=64000
+
+module load gcc12-env
+module load cp2k-autumnschool/default
+module load cp2k
+
+export OMP_NUM_THREADS=1
+export PYTHONPATH=/gxfs_home/cau/suphc424/Software/libra-code/_build/src:$PYTHONPATH
+source /gxfs_home/cau/suphc424/.conda/envs/libra/bin/activate
+
+python run.py
+```
+
+Add the Libra setup commands before `python run.py` in the supplied file.
+Adapt the reservation, account, partition, installation paths, and resource
+limits to your NESH allocation as directed by the instructors. The commented
+UB-cluster examples are unrelated to this NESH run.
+
+**Match the resources:** one node with eight tasks gives eight MPI processes,
+consistent with `params['nprocs']=8`. With `--cpus-per-task=1`, retain
+`OMP_NUM_THREADS=1`. Update the process count, SLURM allocation, and thread
+count together if you change the parallel layout.
+
+## 6. Run a few frames
+
+In `distribute_jobs.py`, select the short tutorial calculation:
+
+```python
+run_slurm = True
+submit_template = 'submit_template.slm'
+run_python_file = 'run_template.py'
+istep = 0
+fstep = 2
+njobs = 1
+submission_exe = 'sbatch'
+```
+
+The first XYZ frame has index zero. The distributor includes the final
+frame, so this processes frames **0, 1, and 2**, producing time overlaps for
+**0 → 1** and **1 → 2**. It writes `istep=0` and `fstep=3` in `job1/run.py`,
+whose Python loop excludes its upper bound.
+
+Submit from the rutile Step 2 folder:
+
+```bash
+python distribute_jobs.py
+squeue -u "$USER"
+```
+
+The distributor creates `job1/`, generates `run.py`, copies the submission
+template, and calls `sbatch`. Each job runs CP2K for its assigned geometries
+and computes the overlaps with Libra.
+
+Keep `run_slurm=True` on NESH. In Libra's distributor, `False` executes the
+submission script locally with `sh`; it is not a preparation-only mode.
+Rerunning the distributor recreates matching `job*` directories, so preserve
+completed results before reusing them.
+
+For the full supplied trajectory, use `istep=0`, `fstep=20`, and `njobs=4`.
+The jobs cover frames 0–5, 5–10, 10–15, and 15–20. Shared boundary frames
+allow adjacent-frame overlaps across the full range. Their generated
+exclusive `fstep` values are 6, 11, 16, and 21. The current distributor
+defaults (`fstep=10`, `njobs=2`) cover only part of that trajectory.
+
+## 7. Inspect the outputs and continue to Step 3
+
+After the job finishes, inspect `job1/slurm-*.out` and the collected CP2K
+logs for successful SCF and TD-DFPT convergence.
 
 | Output | Meaning |
 | --- | --- |
-| `all_logfiles/step_i.log` | CP2K results for frame `i`, including excitation energies and amplitudes needed by Step 3. |
-| `all_pdosfiles/` | Projected density-of-states files for electronic-structure analysis. |
-| `res/E_ks_i.npz` | KS orbital energy matrices. Step 3's supplied `run.py` instead obtains excitation energies from the logs. |
-| `res/S_ks_i.npz` | Same-frame KS overlaps. |
-| `res/St_ks_i.npz` | KS time overlaps for interval `i → i+1`. |
-| `job1/`, `job2/`, … | Generated inputs, scripts, and working files for inspection or debugging. |
+| `job1/`, `job2/`, … | Generated scripts, coordinates, CP2K inputs, SLURM output, and working files. |
+| `all_logfiles/step_i.log` | CP2K output for frame `i`, including excitation energies and amplitudes. |
+| `all_pdosfiles/` | Projected density-of-states files. |
+| `res/E_ks_i.npz` | KS orbital-energy matrices. |
+| `res/S_ks_i.npz` | Same-frame overlaps at frame `i`. |
+| `res/St_ks_i.npz` | Time overlaps between frames `i` and `i+1`; inputs for the later coupling calculation. |
 
-The reference has 21 logs and 21 each of `E_ks` and `S_ks` (indices 0–20),
-plus 20 `St_ks` files (indices 0–19). The matrices include alpha and beta spin
-blocks: 40 spatial orbitals give an 80 × 80 matrix, while the 14–35 window
-contains 22 spatial orbitals and gives a 44 × 44 matrix.
+The short run should produce three logs, three `E_ks` matrices, and three
+`S_ks` matrices, indexed 0–2, plus two `St_ks` matrices, indexed 0–1.
+The precomputed `reference/` contains 21 logs and 21 each of `E_ks` and
+`S_ks` for frames 0–20, plus 20 `St_ks` matrices for intervals 0–19.
+These results are already unpacked and can be used directly.
 
-For a quick inspection from `2_step2`:
+For a quick inspection of the reference matrices:
 
-```python
+```bash
+python - <<'PY'
 from scipy.sparse import load_npz
 
 S = load_npz("reference/res/S_ks_0.npz").toarray()
 St = load_npz("reference/res/St_ks_0.npz").toarray()
-print(S.shape, St.shape)
+print("Same-frame overlap:", S.shape)
+print("Time overlap:", St.shape)
+PY
 ```
 
-Pass the matching trajectory, `res/`, and `all_logfiles/` to Step 3. Keep each
-dataset together: do not mix logs, orbital windows, or trajectories. Set
-Step 3's `lowest_orbital` to 1 for the main example or 14 for the smaller
-window, and use the actual saved-frame spacing. Read the **Time indexing:
-align both endpoints** section of the [Step 3 guide](../3_step3/README.md)
-before running its supplied loop; it documents a correction needed to match
-the KS time-overlap endpoints with the TD-DFT logs.
+Both should be `(80, 80)` for the `1..40` orbital window. Same-frame
+overlaps should be close to identity; time overlaps need not be identity
+or symmetric.
 
-## Student exercises
+For [Step 3](../../3_step3/README.md), use the matching **unaligned rutile
+trajectory**, `reference/res/`, and `reference/all_logfiles/`, with paths
+resolved from the Step 3 working directory. Set `lowest_orbital=1` and
+`nstates=11` for the ground state plus 10 excited states. The supplied MD
+input uses a 1 fs step and writes every step, giving
+`dt=1.0 * units.fs2au`.
 
-Use `reference/` and `smaller_orbital_space/` for the first three exercises;
-no new CP2K runs are required. Submit a few plots or tables with short explanations.
-
-1. **Trace one job.** Inspect `reference/job2/run.py` and its CP2K inputs.
-   Identify its frame range, orbital window, and output locations. Explain why
-   neighboring jobs share a frame, and count the distinct time intervals
-   covered by all four jobs.
-2. **Inspect overlap matrices.** Load `S_ks_0` and `St_ks_0`, report their
-   dimensions, and plot their absolute values. Measure the largest absolute
-   entry of `S - I` and of `S - S.conj().T`. Explain why a same-frame overlap
-   should be close to identity, whereas a time overlap need not be identity
-   or symmetric. Orbital signs can also change between frames.
-3. **Connect orbitals to excitations.** In `reference/all_logfiles/step_0.log`,
-   find the electron count, the first excitation energy, and its largest
-   printed occupied-to-virtual contributions. Check whether those transitions
-   fit in both orbital windows. Compare matrix dimensions and disk usage for
-   the two datasets. Does fitting these few transitions establish convergence
-   for every excited state and frame?
-4. **Optional short calculation.** In a separate working copy, process a few
-   adjacent frames with one job, then change only the orbital window. Compare
-   cost and overlap blocks for the orbitals common to both runs. Explain what
-   must be checked in Step 3 before using the smaller window for dynamics.
+Pair `St_ks_i.npz` with electronic states from `step_i.log` and
+`step_{i+1}.log`. Follow the
+[time-indexing instructions](../../3_step3/README.md#time-indexing-align-both-endpoints)
+before running the supplied Step 3 loop, and keep logs, orbital windows,
+and trajectory frames consistent throughout the workflow.
