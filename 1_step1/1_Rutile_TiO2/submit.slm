@@ -1,0 +1,20 @@
+#!/bin/bash -l
+#SBATCH --time=2:00:00
+#SBATCH --nodes=1
+#SBATCH --ntasks-per-node=8
+#SBATCH --cpus-per-task=1
+#SBATCH --mem=24000 
+#SBATCH --job-name=cp2k_run
+echo "SLURM_JOBID="$SLURM_JOBID
+echo "SLURM_JOB_NODELIST="$SLURM_JOB_NODELIST
+echo "SLURM_NNODES="$SLURM_NNODES
+echo "SLURMTMPDIR="$SLURMTMPDIR
+echo "working directory="$SLURM_SUBMIT_DIR
+
+
+export OMP_NUM_THREADS=1
+#export I_MPI_PMI_LIBRARY=/usr/lib64/libpmi.so
+module load cp2k
+mpirun -np 8 cp2k.psmp -i md.inp -o out_md_tio2_dft.log
+#srun --mpi=pmi2 -n 6 cp2k.psmp -i md.inp -o out_md_tio2_dft.log
+

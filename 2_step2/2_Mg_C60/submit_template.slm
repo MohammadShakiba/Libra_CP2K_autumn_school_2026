@@ -1,0 +1,29 @@
+#!/bin/bash -l
+#SBATCH --reservation=autumnschool
+#SBATCH --time=06:00:00
+#SBATCH --nodes=1
+#SBATCH --ntasks-per-node=16
+#SBATCH --cpus-per-task=1
+#SBATCH --mem=64000
+
+## For UB cluster
+##SBATCH --account=alexeyak
+##SBATCH --partition=valhalla  --qos=valhalla
+##SBATCH --clusters=faculty
+##SBATCH --partition=general-compute  --qos=general-compute
+##SBATCH --clusters=ub-hpc
+##SBATCH --partition=scavenger  --qos=scavenger
+
+echo "SLURM_JOBID="$SLURM_JOBID
+echo "SLURM_JOB_NODELIST="$SLURM_JOB_NODELIST
+echo "SLURM_NNODES="$SLURM_NNODES
+echo "SLURMTMPDIR="$SLURMTMPDIR
+echo "working directory="$SLURM_SUBMIT_DIR 
+
+module load gcc12-env
+module load cp2k-autumnschool/default
+module load cp2k
+export OMP_NUM_THREADS=1
+python run.py
+
+
